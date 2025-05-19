@@ -4,8 +4,8 @@ let score = document.getElementById("score");
 let scoreValue = 0;
 let positionDeMonSnakeX = parseInt(snake.style.left);
 let positionDeMonSnakeY = parseInt(snake.style.top);
-
-
+let snakeSizePosition = []
+let snakeLastPosition = [positionDeMonSnakeX, positionDeMonSnakeY];
 function mouveSnakeDown() {
     positionDeMonSnakeY += 10;
     console.log(positionDeMonSnakeY);
@@ -76,6 +76,8 @@ function mouveSnake(keydown){
         mouveSnakeDown();
     }
     snakeEatApple();
+    snakeMouveSize();
+    snakeLastPosition = [positionDeMonSnakeX, positionDeMonSnakeY];
 }
 
 function snakeEatApple(){
@@ -102,8 +104,28 @@ function snakeEatApple(){
 
 function addSnakeSize(){
     let snakeSize = document.createElement("div");
+    snakeSizePosition.push(snakeSize);
     snakeSize.className = "snakeSize";
     snakeSize.style.top = positionDeMonSnakeY + "px";
     snakeSize.style.left = positionDeMonSnakeX + "px";
+    snakeSize.style.width = "10px";
+    snakeSize.style.height = "10px";
+    snakeSize.style.backgroundColor = "green";
+    snakeSize.style.position = "absolute";
     document.getElementById("game").appendChild(snakeSize);
+}
+
+function snakeMouveSize() {
+    for (let index = 0; index < snakeSizePosition.length; index++) {
+        const element = snakeSizePosition[index];
+        if (index == 0) {
+            element.style.top = snakeLastPosition[1] + "px";
+            element.style.left = snakeLastPosition[0] + "px";
+            
+        }else{
+            element.style.top = snakeSizePosition[index - 1].style.top;
+            element.style.left = snakeSizePosition[index - 1].style.left;
+        }
+        
+    }
 }
