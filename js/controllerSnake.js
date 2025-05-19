@@ -5,14 +5,14 @@ let scoreValue = 0;
 let positionDeMonSnakeX = parseInt(snake.style.left);
 let positionDeMonSnakeY = parseInt(snake.style.top);
 let snakeSizePosition = []
-let snakeLastPosition = [positionDeMonSnakeX, positionDeMonSnakeY];
+let snakeLastPosition = [snake];
 function mouveSnakeDown() {
     positionDeMonSnakeY += 10;
     console.log(positionDeMonSnakeY);
     if (positionDeMonSnakeY == 300) {
         positionDeMonSnakeY = 0;
         snake.style.top = positionDeMonSnakeY + "px";
-    }else{
+    } else {
         snake.style.top = positionDeMonSnakeY + "px";
     }
 }
@@ -23,7 +23,7 @@ function mouveSnakeUp() {
     if (positionDeMonSnakeY == -10) {
         positionDeMonSnakeY = 290;
         snake.style.top = positionDeMonSnakeY + "px";
-    }else{
+    } else {
         snake.style.top = positionDeMonSnakeY + "px";
     }
 }
@@ -34,7 +34,7 @@ function mouveSnakeLeft() {
     if (positionDeMonSnakeX == -10) {
         positionDeMonSnakeX = 340;
         snake.style.left = positionDeMonSnakeX + "px";
-    }else{
+    } else {
         snake.style.left = positionDeMonSnakeX + "px";
     }
 }
@@ -45,7 +45,7 @@ function mouveSnakeRight() {
     if (positionDeMonSnakeX == 350) {
         positionDeMonSnakeX = 0;
         snake.style.left = positionDeMonSnakeX + "px";
-    }else{
+    } else {
         snake.style.left = positionDeMonSnakeX + "px";
     }
 }
@@ -59,28 +59,28 @@ document.addEventListener('keydown', function (event) {
 
 // setInterval(mouveSnake(keydownSave), 100);
 
-function mouveSnake(keydown){
+function mouveSnake(keydown) {
     if (keydown == "ArrowRight") {
         mouveSnakeRight();
-        
+
     }
     if (keydown == "ArrowLeft") {
         mouveSnakeLeft();
-        
+
     }
     if (keydown == "ArrowUp") {
         mouveSnakeUp();
-        
+
     }
     if (keydown == "ArrowDown") {
         mouveSnakeDown();
     }
     snakeEatApple();
     snakeMouveSize();
-    snakeLastPosition = [positionDeMonSnakeX, positionDeMonSnakeY];
+    snakeLastPosition[0] = [snake.style.top, snake.style.left];
 }
 
-function snakeEatApple(){
+function snakeEatApple() {
     let positionLegitX = []
     let counter = 0;
     for (let index = 0; index < 35; index++) {
@@ -95,14 +95,14 @@ function snakeEatApple(){
     }
     if (snake.style.top == apple.style.top && snake.style.left == apple.style.left) {
         scoreValue = scoreValue + 1;
-        score.innerHTML = "Score : " +scoreValue;
+        score.innerHTML = "Score : " + scoreValue;
         apple.style.top = positionLegitY[parseInt(Math.random() * 35)] + "px";
         apple.style.left = positionLegitX[parseInt(Math.random() * 30)] + "px";
         addSnakeSize();
     }
 }
 
-function addSnakeSize(){
+function addSnakeSize() {
     let snakeSize = document.createElement("div");
     snakeSizePosition.push(snakeSize);
     snakeSize.className = "snakeSize";
@@ -118,14 +118,12 @@ function addSnakeSize(){
 function snakeMouveSize() {
     for (let index = 0; index < snakeSizePosition.length; index++) {
         const element = snakeSizePosition[index];
-        if (index == 0) {
-            element.style.top = snakeLastPosition[1] + "px";
-            element.style.left = snakeLastPosition[0] + "px";
-            
-        }else{
-            element.style.top = snakeSizePosition[index - 1].style.top;
-            element.style.left = snakeSizePosition[index - 1].style.left;
+        if (index == snakeLastPosition.length - 1) {
+            snakeLastPosition.push([element.style.top, element.style.left]);
+        }else {
+            snakeLastPosition[index + 1] = [element.style.top, element.style.left];
         }
-        
+        element.style.top = snakeLastPosition[index][0];
+        element.style.left = snakeLastPosition[index][1];
     }
 }
