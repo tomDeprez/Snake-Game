@@ -1,16 +1,56 @@
 let snake = document.getElementById("snake");
 let apple = document.getElementById("apple");
 let score = document.getElementById("score");
+let rewardText = document.getElementById("reward");
 let scoreValue = 0;
 let positionDeMonSnakeX = parseInt(snake.style.left);
 let positionDeMonSnakeY = parseInt(snake.style.top);
 let snakeSizePosition = []
 let snakeLastPosition = [];
 let modelLearning = createModel();
+let reward = 0;
+let isTraining = false;
+let lastDistanceSnakeToApple = distanceSnakeToApple();
+let stepsSinceLastApple = 0;
+// Nouvelles variables pour l'exploration
+let epsilon = 0.9;          // Taux d'exploration initial (100% d'exploration)
+const epsilonMin = 0.01;    // Taux d'exploration minimum
+const epsilonDecayRate = 0.995; // Facteur de décroissance (à ajuster)
+// 0.999 ou 0.9995 sont aussi des valeurs communes
+let totalStepsOrEpisodes = 0; // Pour suivre quand faire décroître epsilon
+let episode = 0; // Pour suivre quand faire décroître epsilon
+const agent = {
+    async learn(state, actionIndex, reward, nextState, done) {
+        isTraining = true;
+
+        const stateTensor = tf.tensor2d([state]);
+        const nextStateTensor = tf.tensor2d([nextState]);
+
+        const currentQ = modelLearning.predict(stateTensor);
+        const nextQ = modelLearning.predict(nextStateTensor);
+
+        const targetQ = currentQ.arraySync()[0];
+        if (done) {
+            targetQ[actionIndex] = reward;
+        } else {
+            const maxNextQ = Math.max(...nextQ.arraySync()[0]);
+            targetQ[actionIndex] = reward + 0.9 * maxNextQ;
+        }
+
+        const targetTensor = tf.tensor2d([targetQ]);
+
+        await modelLearning.fit(stateTensor, targetTensor, { epochs: 1, verbose: 0 });
+
+        // nettoyage
+        tf.dispose([stateTensor, nextStateTensor, currentQ, nextQ, targetTensor]);
+
+        isTraining = false;
+    }
+};
+
 
 function mouveSnakeDown() {
     positionDeMonSnakeY += 10;
-    console.log(positionDeMonSnakeY);
     if (positionDeMonSnakeY == 300) {
         positionDeMonSnakeY = 0;
         snake.style.top = positionDeMonSnakeY + "px";
@@ -21,7 +61,6 @@ function mouveSnakeDown() {
 
 function mouveSnakeUp() {
     positionDeMonSnakeY -= 10;
-    console.log(positionDeMonSnakeY);
     if (positionDeMonSnakeY == -10) {
         positionDeMonSnakeY = 290;
         snake.style.top = positionDeMonSnakeY + "px";
@@ -32,7 +71,6 @@ function mouveSnakeUp() {
 
 function mouveSnakeLeft() {
     positionDeMonSnakeX -= 10;
-    console.log(positionDeMonSnakeX);
     if (positionDeMonSnakeX == -10) {
         positionDeMonSnakeX = 340;
         snake.style.left = positionDeMonSnakeX + "px";
@@ -43,7 +81,6 @@ function mouveSnakeLeft() {
 
 function mouveSnakeRight() {
     positionDeMonSnakeX += 10;
-    console.log(positionDeMonSnakeX); // 350
     if (positionDeMonSnakeX == 350) {
         positionDeMonSnakeX = 0;
         snake.style.left = positionDeMonSnakeX + "px";
@@ -102,6 +139,7 @@ function snakeEatApple() {
         apple.style.top = positionLegitY[parseInt(Math.random() * 35)] + "px";
         apple.style.left = positionLegitX[parseInt(Math.random() * 30)] + "px";
         addSnakeSize();
+        reward = reward + 10;
     }
 }
 
@@ -132,6 +170,7 @@ function snakeMouveSize() {
 }
 
 function gameOver() {
+    let isDeadReturn = false;
     snakeSizePosition.forEach(element => {
         if (element.style.top == snake.style.top && element.style.left == snake.style.left) {
             // Supprimer tous les éléments HTML de snakeSizePosition
@@ -150,8 +189,11 @@ function gameOver() {
             positionDeMonSnakeY = parseInt(snake.style.top);
             snakeSizePosition = [];
             snakeLastPosition = [];
+            reward = reward - 10;
+            isDeadReturn = true;
         }
     });
+    return isDeadReturn;
 }
 
 
@@ -216,10 +258,8 @@ function getDataForLearning() {
     let dangerScore = snakeLastPosition.length > 1 ? dangerCount / (snakeLastPosition.length - 1) : 0;
     learningData.push(dangerScore);
 
-    // Distance euclidienne tête-pomme
-    let distanceToApple = Math.sqrt((headLeft - appleLeft) ** 2 + (headTop - appleTop) ** 2);
-    distanceToApple = distanceToApple / Math.sqrt(2); // Normalisé (distance max = √2)
-    learningData.push(distanceToApple);
+    // Distance entre tête-pomme et tete snake
+    learningData.push(distanceSnakeToApple() / 450);
 
     // Direction actuelle (one-hot encoding)
     let direction = [0, 0, 0, 0]; // Par défaut : aucune direction
@@ -235,9 +275,16 @@ function getDataForLearning() {
     return learningData; // 13 entrées : [total, taille, pomme_x, pomme_y, tête_x, tête_y, danger, distance_pomme, dir_haut, dir_droite, dir_bas, dir_gauche, scoreValue]
 }
 
-function getActionFromPrediction(prediction) {
-    const actionIndex = prediction.argMax(1).dataSync()[0]; // 0 = haut, 1 = droite, 2 = bas, 3 = gauche
-    return actionIndex;
+function getActionFromPrediction(predictionTensor) { // predictionTensor contient les Q-values
+    if (Math.random() < epsilon) {
+        // Phase d'exploration : choisir une action aléatoire
+        // Vos actions sont 0: Haut, 1: Droite, 2: Bas, 3: Gauche
+        return Math.floor(Math.random() * 4); // Retourne 0, 1, 2, ou 3
+    } else {
+        // Phase d'exploitation : choisir la meilleure action
+        const actionIndex = predictionTensor.argMax(1).dataSync()[0];
+        return actionIndex;
+    }
 }
 
 function applyAction(index) {
@@ -248,17 +295,89 @@ function applyAction(index) {
 }
 
 // Boucle d'IA (remplace le clavier)
-setInterval(() => {
-    const input = getDataForLearning(); // ton tableau de 10 floats
-    const tensorInput = tf.tensor2d([input]); // batch de 1
+setInterval(async () => {
+    if (!isTraining) {
+        const input = getDataForLearning(); // ton tableau de 10 floats
+        const tensorInput = tf.tensor2d([input]); // batch de 1
 
-    const prediction = modelLearning.predict(tensorInput);
-    const actionIndex = getActionFromPrediction(prediction);
+        const prediction = modelLearning.predict(tensorInput);
+        const actionIndex = getActionFromPrediction(prediction);
 
-    applyAction(actionIndex);
+        applyAction(actionIndex);
 
-    snakeEatApple();
-    snakeMouveSize();
-    snakeLastPosition[0] = [snake.style.top, snake.style.left];
+        snakeEatApple();
+        snakeMouveSize();
 
-}, 100); // 100ms
+        snakeLastPosition[0] = [snake.style.top, snake.style.left];
+
+        // rewardSnakeComeToApple();
+        updateSteps();
+        const newState = getDataForLearning();
+        let isDead = gameOver();
+        agent.learn(input, actionIndex, reward, newState, isDead);
+        if (isDead) {
+            episode = episode + 1;
+            // Réinitialiser l'état du jeu (déjà fait dans gameOver)
+            // Faire décroître epsilon à la fin de chaque épisode (quand le serpent meurt)
+            if (epsilon > epsilonMin) {
+                epsilon *= epsilonDecayRate; // Décroissance multiplicative
+                // Ou décroissance linéaire : epsilon -= (1.0 - epsilonMin) / totalEpisodesForDecay;
+            }
+            // console.log("Game Over. New Epsilon: ", epsilon);
+            reward = 0; // Réinitialiser la récompense cumulative affichée si vous en avez une
+            lastDistanceSnakeToApple = distanceSnakeToApple(); // Réinitialiser la distance
+            stepsSinceLastApple = 0; // Réinitialiser les pas
+            updatePerformanceChart();
+        }
+        rewardText.innerHTML = `Reward : ${reward} epsilon : ${epsilon} episode : ${episode}`;
+    }
+}, 1); // 100ms
+
+function rewardSnakeComeToApple() {
+    if (distanceSnakeToApple() < lastDistanceSnakeToApple) {
+        reward += 0.1;
+    } else {
+        // reward -= 0.1;
+    }
+    lastDistanceSnakeToApple = distanceSnakeToApple();
+}
+
+function updateSteps() {
+    stepsSinceLastApple++;
+    if (stepsSinceLastApple > 100) {
+        reward -= 0.5; // Pénalité pour stagnation
+        stepsSinceLastApple = 0;
+        if (distanceSnakeToApple() < lastDistanceSnakeToApple) {
+            reward += 1;
+        } else {
+            reward -= 2;
+        }
+        lastDistanceSnakeToApple = distanceSnakeToApple();
+    }
+}
+
+function distanceSnakeToApple() {
+    let x = Math.abs(parseFloat(snake.style.top) - parseFloat(apple.style.top));
+    let y = Math.abs(parseFloat(snake.style.left) - parseFloat(apple.style.left));
+    return Math.sqrt(x * x + y * y);
+}
+
+async function saveModel() {
+    try {
+        // Sauvegarde le modèle au format .h5 dans le dossier local
+        await modelLearning.save('file://../snake-model/model.h5');
+        console.log('Modèle sauvegardé avec succès dans ./snake-model/model.h5');
+    } catch (error) {
+        console.error('Erreur lors de la sauvegarde du modèle :', error);
+    }
+}
+
+async function loadModel() {
+    try {
+        // Charge le modèle depuis le fichier .h5 local
+        modelLearning = await tf.loadLayersModel('file://../snake-model/model.h5');
+        console.log('Modèle chargé avec succès depuis ./snake-model/model.h5');
+    } catch (error) {
+        console.error('Erreur lors du chargement du modèle :', error);
+    }
+}

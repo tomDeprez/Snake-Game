@@ -10,20 +10,26 @@
 </head>
 
 <body>
-    
+    <div id="snakeGame"></div>
     <div style="height: 300px; width: 350px; background-color: black;" id="game">
 
         <div id="snake"
-        style="position: absolute; height: 10px; width: 10px; background-color: rgb(5, 239, 5);top: 40px; left: 150px;">
-    </div>
+            style="position: absolute; height: 10px; width: 10px; background-color: rgb(5, 239, 5);top: 40px; left: 150px;">
+        </div>
+        <div id="apple"
+            style="position: absolute; height: 10px; width: 10px; background-color: rgb(239, 5, 196);top: 20px; left: 150px;">
+        </div>
     </div>
 
-    <div id="apple"
-        style="position: absolute; height: 10px; width: 10px; background-color: rgb(239, 5, 196);top: 20px; left: 150px;">
-    </div>
+
     <h3 id="score">Score : 0</h3>
+    <h3 id="reward">Reward : 0</h3>
+    <canvas id="performanceChart" width="350" height="200"></canvas>
+    </div>
 </body>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"> </script>
 <script src="/js/controllerSnake.js"></script>
+<script src="/js/controllerChart.js"></script>
 
 </html>
